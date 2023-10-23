@@ -24,16 +24,17 @@ void processInput(GLFWwindow* window, double dt);
 
 glm::mat4 transform = glm::mat4(1.0f);
 
-float mixVal = 0.5f;
+Camera cameras[2] = {
+	Camera(glm::vec3(0.0f,0.0f,3.0f)),
+	Camera(glm::vec3(10.0f, 10.0f, 10.0f))
+};
 
-Camera camera(glm::vec3(0.0f, 0.0f, 0.3f));
+int activeCam = 0;
+
 float deltatime = 0.0f;
 float lastframe = 0.0f;
 
-
 unsigned int SCR_WIDTH = 800, SCR_HEIGHT = 600;
-float x, y, z;
-
 
 int main()
 {
@@ -179,7 +180,7 @@ int main()
 	// load image 1
 	int width, height, nChannels;
 	stbi_set_flip_vertically_on_load(true);
-	unsigned char* data = stbi_load("assets/image2.png", &width, &height, &nChannels, 0);
+	unsigned char* data = stbi_load("assets/Mario.png", &width, &height, &nChannels, 0);
 
 	if (data) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -190,33 +191,10 @@ int main()
 	}
 
 	stbi_image_free(data);
-
-	//glGenTextures(1, &texture2);
-	//glBindTexture(GL_TEXTURE_2D, texture2);
-
-	/*
-	// load image 2
-	data = stbi_load("assets/Mesh.png", &width, &height, &nChannels, 0);
-
-	if (data) {
-		// RGBA because png
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else {
-		std::cout << "Failed to load texture" << std::endl;
-	}
-
-	stbi_image_free(data);
-	*/
 
 	shader.activate();
 	shader.setInt("texture1",0);
-	//shader.setInt("texture2", 1);
 
-	x = 0.0f;
-	y = 0.0f;
-	z = 3.0f;
 
 	// render loop 
 	while (!glfwWindowShouldClose(window)) {
@@ -235,17 +213,11 @@ int main()
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture1);
 
-		//glActiveTexture(GL_TEXTURE1);
-		//glBindTexture(GL_TEXTURE_2D, texture2);
-
 		// drawing shapes	
 		glBindVertexArray(VAO);
 
 		shader.activate();
 
-		shader.setFloat("mixVal", mixVal);
-		 
-		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
 		// Transformations creation for screen
@@ -254,9 +226,8 @@ int main()
 		glm::mat4 projection = glm::mat4(1.0f);
 
 		model = glm::rotate(model, (float)glfwGetTime() * glm::radians(-55.0f), glm::vec3(0.5f));
-		//view = glm::translate(view, glm::vec3(-x, -y, -z));
-		view = camera.getViewMx();
-		projection = glm::perspective(glm::radians(30.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+		view = cameras[activeCam].getViewMx();
+		projection = glm::perspective(glm::radians(cameras[activeCam].zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
 		shader.setMat4("transform", transform);
 		shader.setMat4("model", model);
@@ -291,19 +262,13 @@ void processInput(GLFWwindow* window, double dt) {
 		glfwSetWindowShouldClose(window, true);
 	}
 
-	//change mix value
-	if (Keyboard::key(GLFW_KEY_UP)) {
-		mixVal += 0.05f;
-		if (mixVal > 1) {
-			mixVal = 1.0f;
+	if (Keyboard::keyWentDown(GLFW_KEY_TAB)) {
+		if (activeCam == 0) {
+			activeCam = 1;
 		}
-	}
-
-	if (Keyboard::key(GLFW_KEY_DOWN)){
-		mixVal -= 0.05f;
-			if (mixVal < 0) {
-				mixVal = 0.0f;
-			}
+		else {
+			activeCam = 0;
+		}
 	}
 
 	//moving camera
@@ -311,21 +276,36 @@ void processInput(GLFWwindow* window, double dt) {
 	CameraDirection direction = CameraDirection::NONE;  
 
 	if (Keyboard::key(GLFW_KEY_W)) {
-		camera.cameraPosUpdate(CameraDirection::FORWARD, dt);
+		cameras[activeCam].cameraPosUpdate(CameraDirection::FORWARD, dt);
 	}
 	if (Keyboard::key(GLFW_KEY_S)) {
-		camera.cameraPosUpdate(CameraDirection::BACKWARD, dt);
+		cameras[activeCam].cameraPosUpdate(CameraDirection::BACKWARD, dt);
 	}
 	if (Keyboard::key(GLFW_KEY_A)) {
-		camera.cameraPosUpdate(CameraDirection::RIGHT, dt);
+		cameras[activeCam].cameraPosUpdate(CameraDirection::RIGHT, dt);
 	}
 	if (Keyboard::key(GLFW_KEY_D)) {
-		camera.cameraPosUpdate(CameraDirection::LEFT, dt);
+		cameras[activeCam].cameraPosUpdate(CameraDirection::LEFT, dt);
 	}
 	if (Keyboard::key(GLFW_KEY_LEFT_SHIFT)) {
-		camera.cameraPosUpdate(CameraDirection::DOWN, dt);
+		cameras[activeCam].cameraPosUpdate(CameraDirection::DOWN, dt);
 	}
 	if (Keyboard::key(GLFW_KEY_SPACE)) {
-		camera.cameraPosUpdate(CameraDirection::UP, dt);
+		cameras[activeCam].cameraPosUpdate(CameraDirection::UP, dt);
+	}
+
+	double dx = Mouse::getDX(), dy = Mouse::getDY();
+	if (dx != 0 || dy != 0) {
+		cameras[activeCam].cameraDirectionUpdate(dx, dy);
+	}
+
+	double scrollDy = Mouse::getScrollDY();
+	if (scrollDy != 0) {
+		cameras[activeCam].cameraZoomUpdate(scrollDy);
+	}
+
+	double scrollDx = Mouse::getScrollDX();
+	if (scrollDx != 0) {
+		cameras[activeCam].cameraZoomUpdate(scrollDx);
 	}
 }

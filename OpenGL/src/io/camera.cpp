@@ -22,6 +22,8 @@ void Camera::cameraDirectionUpdate(double dx, double dy) {
 	else if (pitch < -89.0f) {
 		pitch = -89.0f;
 	}
+
+	updateCameraVec();
 }
 
 void Camera::cameraPosUpdate(CameraDirection Dir, double dt) {
